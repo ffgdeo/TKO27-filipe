@@ -1,7 +1,8 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC # Sync Gold Tables to Lakebase
-# MAGIC Reads from Gold layer and writes to Lakebase for sub-second serving
+# MAGIC Reads from Gold layer and writes to Lakebase for sub-second serving.
+# MAGIC Uses REST API to generate OAuth credential for Lakebase Autoscale.
 
 # COMMAND ----------
 
@@ -11,17 +12,35 @@
 # COMMAND ----------
 
 import psycopg2
+import requests
 import json
 
-CATALOG = spark.conf.get("spark.databricks.unityCatalog.catalog", "tko27_filipe_catalog")
+CATALOG = "tko27_filipe_catalog"
 SCHEMA = "loyalty_engine"
 
-# Lakebase connection - set via job parameters or secrets
-LAKEBASE_HOST = dbutils.secrets.get(scope="loyalty-engine", key="lakebase-host")
-LAKEBASE_PORT = dbutils.secrets.get(scope="loyalty-engine", key="lakebase-port")
-LAKEBASE_DB = dbutils.secrets.get(scope="loyalty-engine", key="lakebase-db")
-LAKEBASE_USER = dbutils.secrets.get(scope="loyalty-engine", key="lakebase-user")
-LAKEBASE_PASSWORD = dbutils.secrets.get(scope="loyalty-engine", key="lakebase-password")
+# Generate Lakebase OAuth token via REST API
+WORKSPACE_HOST = spark.conf.get("spark.databricks.workspaceUrl")
+TOKEN = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
+
+resp = requests.post(
+    f"https://{WORKSPACE_HOST}/api/2.0/postgres/credentials",
+    headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"},
+    json={"endpoint": "projects/loyalty-engine/branches/production/endpoints/primary"},
+)
+resp.raise_for_status()
+lakebase_token = resp.json()["token"]
+
+# Get current username
+user_resp = requests.get(
+    f"https://{WORKSPACE_HOST}/api/2.0/preview/scim/v2/Me",
+    headers={"Authorization": f"Bearer {TOKEN}"},
+)
+username = user_resp.json()["userName"]
+
+LAKEBASE_HOST = "ep-snowy-bird-d2ok41nc.database.us-east-1.cloud.databricks.com"
+LAKEBASE_DB = "databricks_postgres"
+
+print(f"Connecting to Lakebase as {username}")
 
 # COMMAND ----------
 
@@ -35,15 +54,20 @@ segments_df = spark.table(f"{CATALOG}.{SCHEMA}.gold_customer_segments").toPandas
 TIER_THRESHOLDS = {"Bronze": 5000, "Silver": 15000, "Gold": 50000, "Platinum": 100000}
 
 conn = psycopg2.connect(
-    host=LAKEBASE_HOST, port=LAKEBASE_PORT,
-    dbname=LAKEBASE_DB, user=LAKEBASE_USER, password=LAKEBASE_PASSWORD,
+    host=LAKEBASE_HOST, port=5432,
+    dbname=LAKEBASE_DB, user=username, password=lakebase_token,
     sslmode="require",
 )
 cur = conn.cursor()
 
 for _, row in segments_df.iterrows():
-    threshold = TIER_THRESHOLDS.get(row["loyalty_tier"], 5000)
-    progress = min(100.0, (row.get("loyalty_points", 0) / threshold) * 100) if threshold > 0 else 0
+    tier = str(row.get("loyalty_tier") or "Bronze")
+    threshold = TIER_THRESHOLDS.get(tier, 5000)
+    points = int(row.get("loyalty_points") or 0)
+    progress = min(100.0, (points / threshold) * 100) if threshold > 0 else 0
+
+    last_purchase = row.get("last_purchase_date")
+    last_purchase_str = str(last_purchase) if last_purchase is not None and str(last_purchase) != "NaT" else None
 
     cur.execute("""
         INSERT INTO loyalty_status (
@@ -65,11 +89,11 @@ for _, row in segments_df.iterrows():
             updated_at = NOW()
     """, (
         row["customer_id"], row.get("first_name"), row.get("last_name"),
-        row["loyalty_tier"], int(row.get("loyalty_points", 0)),
-        float(row.get("lifetime_value", 0)), int(row.get("total_orders", 0)),
+        tier, points,
+        float(row.get("lifetime_value") or 0), int(row.get("total_orders") or 0),
         threshold, round(progress, 1),
         row.get("segment"), row.get("churn_risk_level"),
-        row.get("last_purchase_date"),
+        last_purchase_str,
         row.get("preferred_categories"),
     ))
 
@@ -96,12 +120,14 @@ OFFER_TYPES = ["flash_sale", "loyalty_reward", "recommendation", "bundle_deal"]
 offers_inserted = 0
 
 for _, row in top_interests.iterrows():
-    category_products = products_df[products_df["category"] == row["category"]]
+    cat = str(row.get("category") or "General")
+    category_products = products_df[products_df["category"] == cat]
     if category_products.empty:
         continue
 
     prod = category_products.sample(n=1).iloc[0]
-    discount = min(30, max(5, int(row["interest_score"] / 5)))
+    score = float(row.get("interest_score") or 0)
+    discount = min(30, max(5, int(score / 5)))
 
     cur.execute("""
         INSERT INTO personalized_offers (
@@ -112,10 +138,10 @@ for _, row in top_interests.iterrows():
         ON CONFLICT (offer_id) DO NOTHING
     """, (
         str(uuid.uuid4()), row["customer_id"],
-        f"OFFER-{row['category'][:3].upper()}-{discount}OFF",
+        f"OFFER-{cat[:3].upper()}-{discount}OFF",
         prod["product_id"], prod["product_name"],
-        row["category"], float(row["interest_score"]),
-        OFFER_TYPES[int(row["interest_rank"]) % len(OFFER_TYPES)],
+        cat, score,
+        OFFER_TYPES[int(row.get("interest_rank", 1)) % len(OFFER_TYPES)],
         float(discount),
         (datetime.now() + timedelta(days=7)).isoformat(),
     ))
