@@ -1,14 +1,20 @@
 """
 Loyalty Engine - Customer Portal API
 FastAPI backend serving personalized offers, loyalty status, and Style Assistant.
+Connects to Lakebase via OAuth token generated from Databricks workspace.
 """
 
 import os
+import time
 import json
 import psycopg2
+import requests as req_lib
 from contextlib import contextmanager
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
 import httpx
@@ -23,21 +29,59 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configuration from environment
-LAKEBASE_HOST = os.environ.get("LAKEBASE_HOST", "")
+# Configuration
+LAKEBASE_HOST = os.environ.get("LAKEBASE_HOST", "ep-snowy-bird-d2ok41nc.database.us-east-1.cloud.databricks.com")
 LAKEBASE_PORT = os.environ.get("LAKEBASE_PORT", "5432")
-LAKEBASE_DB = os.environ.get("LAKEBASE_DB", "loyalty_engine")
-LAKEBASE_USER = os.environ.get("LAKEBASE_USER", "")
-LAKEBASE_PASSWORD = os.environ.get("LAKEBASE_PASSWORD", "")
-MODEL_SERVING_URL = os.environ.get("MODEL_SERVING_URL", "")
+LAKEBASE_DB = os.environ.get("LAKEBASE_DB", "databricks_postgres")
+LAKEBASE_ENDPOINT = os.environ.get("LAKEBASE_ENDPOINT", "projects/loyalty-engine/branches/production/endpoints/primary")
+DATABRICKS_HOST = os.environ.get("DATABRICKS_HOST", "https://fevm-tko27-filipe.cloud.databricks.com")
 DATABRICKS_TOKEN = os.environ.get("DATABRICKS_TOKEN", "")
+MODEL_SERVING_URL = os.environ.get("MODEL_SERVING_URL", "")
+
+# Token cache
+_token_cache = {"token": None, "expires_at": 0, "username": None}
+
+
+def _get_lakebase_creds():
+    """Get or refresh Lakebase OAuth credentials."""
+    now = time.time()
+    if _token_cache["token"] and now < _token_cache["expires_at"] - 60:
+        return _token_cache["token"], _token_cache["username"]
+
+    token = DATABRICKS_TOKEN
+    if not token:
+        token = os.environ.get("DATABRICKS_TOKEN", "")
+
+    # Generate Lakebase credential
+    resp = req_lib.post(
+        f"{DATABRICKS_HOST}/api/2.0/postgres/credentials",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"endpoint": LAKEBASE_ENDPOINT},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    cred = resp.json()
+
+    # Get username
+    if not _token_cache["username"]:
+        user_resp = req_lib.get(
+            f"{DATABRICKS_HOST}/api/2.0/preview/scim/v2/Me",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        _token_cache["username"] = user_resp.json()["userName"]
+
+    _token_cache["token"] = cred["token"]
+    _token_cache["expires_at"] = now + 3500  # ~1 hour
+    return _token_cache["token"], _token_cache["username"]
 
 
 @contextmanager
 def get_db():
+    lb_token, username = _get_lakebase_creds()
     conn = psycopg2.connect(
         host=LAKEBASE_HOST, port=LAKEBASE_PORT,
-        dbname=LAKEBASE_DB, user=LAKEBASE_USER, password=LAKEBASE_PASSWORD,
+        dbname=LAKEBASE_DB, user=username, password=lb_token,
         sslmode="require",
     )
     try:
@@ -53,7 +97,7 @@ class ChatRequest(BaseModel):
     customer_id: Optional[str] = None
 
 
-# --- Routes ---
+# --- API Routes ---
 
 @app.get("/api/health")
 def health():
@@ -73,7 +117,6 @@ def get_customer_profile(customer_id: str):
             raise HTTPException(status_code=404, detail="Customer not found")
         cols = [desc[0] for desc in cur.description]
         profile = dict(zip(cols, row))
-        # Convert non-serializable types
         for k, v in profile.items():
             if hasattr(v, "isoformat"):
                 profile[k] = v.isoformat()
@@ -131,7 +174,7 @@ def get_customer_activity(customer_id: str):
 @app.post("/api/customer/{customer_id}/recommend")
 async def get_recommendations(customer_id: str, req: ChatRequest):
     if not MODEL_SERVING_URL:
-        raise HTTPException(status_code=503, detail="Style Assistant not configured")
+        raise HTTPException(status_code=503, detail="Style Assistant not configured yet")
 
     payload = {
         "messages": [{"role": "user", "content": req.message}],
@@ -203,3 +246,16 @@ def get_dashboard_stats():
         stats["active_offers"] = cur.fetchone()[0]
 
         return stats
+
+
+# --- Static files (React frontend) ---
+STATIC_DIR = Path(__file__).parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        file_path = STATIC_DIR / full_path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(STATIC_DIR / "index.html")

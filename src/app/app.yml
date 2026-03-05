@@ -8,16 +8,12 @@ command:
 
 env:
   - name: LAKEBASE_HOST
-    valueFrom: loyalty-engine-lakebase-host
+    value: "ep-snowy-bird-d2ok41nc.database.us-east-1.cloud.databricks.com"
   - name: LAKEBASE_PORT
     value: "5432"
   - name: LAKEBASE_DB
-    valueFrom: loyalty-engine-lakebase-db
-  - name: LAKEBASE_USER
-    valueFrom: loyalty-engine-lakebase-user
-  - name: LAKEBASE_PASSWORD
-    valueFrom: loyalty-engine-lakebase-password
-  - name: MODEL_SERVING_URL
-    valueFrom: loyalty-engine-model-serving-url
-  - name: DATABRICKS_TOKEN
-    valueFrom: loyalty-engine-databricks-token
+    value: "databricks_postgres"
+  - name: LAKEBASE_ENDPOINT
+    value: "projects/loyalty-engine/branches/production/endpoints/primary"
+  - name: DATABRICKS_HOST
+    value: "https://fevm-tko27-filipe.cloud.databricks.com"
