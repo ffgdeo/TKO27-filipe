@@ -1,0 +1,23 @@
+command:
+  - uvicorn
+  - main:app
+  - --host
+  - "0.0.0.0"
+  - --port
+  - "8000"
+
+env:
+  - name: LAKEBASE_HOST
+    valueFrom: loyalty-engine-lakebase-host
+  - name: LAKEBASE_PORT
+    value: "5432"
+  - name: LAKEBASE_DB
+    valueFrom: loyalty-engine-lakebase-db
+  - name: LAKEBASE_USER
+    valueFrom: loyalty-engine-lakebase-user
+  - name: LAKEBASE_PASSWORD
+    valueFrom: loyalty-engine-lakebase-password
+  - name: MODEL_SERVING_URL
+    valueFrom: loyalty-engine-model-serving-url
+  - name: DATABRICKS_TOKEN
+    valueFrom: loyalty-engine-databricks-token

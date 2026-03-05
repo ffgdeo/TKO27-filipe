@@ -1,0 +1,66 @@
+bundle:
+  name: tko27-filipe-loyalty-engine
+
+variables:
+  catalog:
+    default: tko27_filipe_catalog
+  schema:
+    default: loyalty_engine
+
+workspace:
+  host: https://fevm-tko27-filipe.cloud.databricks.com
+
+resources:
+  pipelines:
+    loyalty_pipeline:
+      name: "loyalty-engine-pipeline"
+      catalog: ${var.catalog}
+      target: ${var.schema}
+      channel: PREVIEW
+      development: true
+      libraries:
+        - notebook:
+            path: src/pipelines/loyalty_pipeline.py
+      configuration:
+        catalog: ${var.catalog}
+        schema: ${var.schema}
+
+  jobs:
+    data_generation:
+      name: "loyalty-engine-data-gen"
+      tasks:
+        - task_key: generate_mock_data
+          notebook_task:
+            notebook_path: src/data_generation/generate_mock_data.py
+          new_cluster:
+            spark_version: "16.2.x-scala2.12"
+            num_workers: 0
+            node_type_id: "i3.xlarge"
+            spark_conf:
+              spark.master: "local[*]"
+              spark.databricks.cluster.profile: singleNode
+            custom_tags:
+              ResourceClass: SingleNode
+
+    lakebase_sync:
+      name: "loyalty-engine-lakebase-sync"
+      tasks:
+        - task_key: sync_to_lakebase
+          notebook_task:
+            notebook_path: src/data_generation/sync_to_lakebase.py
+          new_cluster:
+            spark_version: "16.2.x-scala2.12"
+            num_workers: 0
+            node_type_id: "i3.xlarge"
+            spark_conf:
+              spark.master: "local[*]"
+              spark.databricks.cluster.profile: singleNode
+            custom_tags:
+              ResourceClass: SingleNode
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://fevm-tko27-filipe.cloud.databricks.com
