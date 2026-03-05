@@ -18,6 +18,7 @@ resources:
       target: ${var.schema}
       channel: PREVIEW
       development: true
+      serverless: true
       libraries:
         - notebook:
             path: src/pipelines/loyalty_pipeline.py
@@ -32,15 +33,13 @@ resources:
         - task_key: generate_mock_data
           notebook_task:
             notebook_path: src/data_generation/generate_mock_data.py
-          new_cluster:
-            spark_version: "16.2.x-scala2.12"
-            num_workers: 0
-            node_type_id: "i3.xlarge"
-            spark_conf:
-              spark.master: "local[*]"
-              spark.databricks.cluster.profile: singleNode
-            custom_tags:
-              ResourceClass: SingleNode
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+            dependencies:
+              - faker
 
     lakebase_sync:
       name: "loyalty-engine-lakebase-sync"
@@ -48,15 +47,13 @@ resources:
         - task_key: sync_to_lakebase
           notebook_task:
             notebook_path: src/data_generation/sync_to_lakebase.py
-          new_cluster:
-            spark_version: "16.2.x-scala2.12"
-            num_workers: 0
-            node_type_id: "i3.xlarge"
-            spark_conf:
-              spark.master: "local[*]"
-              spark.databricks.cluster.profile: singleNode
-            custom_tags:
-              ResourceClass: SingleNode
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+            dependencies:
+              - psycopg2-binary
 
 targets:
   dev:

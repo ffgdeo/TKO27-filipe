@@ -28,7 +28,7 @@ def bronze_products():
         .option("cloudFiles.format", "csv")
         .option("cloudFiles.inferColumnTypes", "true")
         .option("header", "true")
-        .load(f"{VOLUME_PATH}/products_catalog.csv")
+        .load(f"{VOLUME_PATH}/products_catalog/")
     )
 
 
@@ -43,7 +43,7 @@ def bronze_customers():
         .option("cloudFiles.format", "csv")
         .option("cloudFiles.inferColumnTypes", "true")
         .option("header", "true")
-        .load(f"{VOLUME_PATH}/customer_profiles.csv")
+        .load(f"{VOLUME_PATH}/customer_profiles/")
     )
 
 
@@ -58,7 +58,7 @@ def bronze_purchases():
         .option("cloudFiles.format", "csv")
         .option("cloudFiles.inferColumnTypes", "true")
         .option("header", "true")
-        .load(f"{VOLUME_PATH}/purchase_history.csv")
+        .load(f"{VOLUME_PATH}/purchase_history/")
     )
 
 
@@ -73,7 +73,7 @@ def bronze_clickstream():
         .option("cloudFiles.format", "csv")
         .option("cloudFiles.inferColumnTypes", "true")
         .option("header", "true")
-        .load(f"{VOLUME_PATH}/clickstream_events.csv")
+        .load(f"{VOLUME_PATH}/clickstream_events/")
     )
 
 

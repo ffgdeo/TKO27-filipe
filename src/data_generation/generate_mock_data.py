@@ -23,7 +23,7 @@ fake = Faker()
 Faker.seed(42)
 random.seed(42)
 
-CATALOG = spark.conf.get("spark.databricks.unityCatalog.catalog", "tko27_filipe_catalog")
+CATALOG = "tko27_filipe_catalog"
 SCHEMA = "loyalty_engine"
 VOLUME = "raw_data"
 
@@ -92,7 +92,8 @@ buf = io.StringIO()
 writer = csv.DictWriter(buf, fieldnames=products[0].keys())
 writer.writeheader()
 writer.writerows(products)
-dbutils.fs.put(f"{VOLUME_PATH}/products_catalog.csv", buf.getvalue(), overwrite=True)
+dbutils.fs.mkdirs(f"{VOLUME_PATH}/products_catalog")
+dbutils.fs.put(f"{VOLUME_PATH}/products_catalog/products.csv", buf.getvalue(), overwrite=True)
 
 # COMMAND ----------
 
@@ -140,7 +141,8 @@ buf = io.StringIO()
 writer = csv.DictWriter(buf, fieldnames=customers[0].keys())
 writer.writeheader()
 writer.writerows(customers)
-dbutils.fs.put(f"{VOLUME_PATH}/customer_profiles.csv", buf.getvalue(), overwrite=True)
+dbutils.fs.mkdirs(f"{VOLUME_PATH}/customer_profiles")
+dbutils.fs.put(f"{VOLUME_PATH}/customer_profiles/customers.csv", buf.getvalue(), overwrite=True)
 
 # COMMAND ----------
 
@@ -176,7 +178,8 @@ buf = io.StringIO()
 writer = csv.DictWriter(buf, fieldnames=purchases[0].keys())
 writer.writeheader()
 writer.writerows(purchases)
-dbutils.fs.put(f"{VOLUME_PATH}/purchase_history.csv", buf.getvalue(), overwrite=True)
+dbutils.fs.mkdirs(f"{VOLUME_PATH}/purchase_history")
+dbutils.fs.put(f"{VOLUME_PATH}/purchase_history/purchases.csv", buf.getvalue(), overwrite=True)
 
 # COMMAND ----------
 
@@ -246,7 +249,8 @@ buf = io.StringIO()
 writer = csv.DictWriter(buf, fieldnames=clickstream[0].keys())
 writer.writeheader()
 writer.writerows(clickstream)
-dbutils.fs.put(f"{VOLUME_PATH}/clickstream_events.csv", buf.getvalue(), overwrite=True)
+dbutils.fs.mkdirs(f"{VOLUME_PATH}/clickstream_events")
+dbutils.fs.put(f"{VOLUME_PATH}/clickstream_events/events.csv", buf.getvalue(), overwrite=True)
 
 # COMMAND ----------
 
@@ -264,8 +268,8 @@ Purchase History: {len(purchases)} transactions
 Clickstream Events: {len(clickstream)} events
 
 All files written to: {VOLUME_PATH}/
-  - products_catalog.csv
-  - customer_profiles.csv
-  - purchase_history.csv
-  - clickstream_events.csv
+  - products_catalog/products.csv
+  - customer_profiles/customers.csv
+  - purchase_history/purchases.csv
+  - clickstream_events/events.csv
 """)
