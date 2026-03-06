@@ -1,0 +1,232 @@
+{
+  "datasets": [
+    {
+      "name": "revenue_by_category",
+      "displayName": "Revenue by Category",
+      "query": "SELECT category, ROUND(SUM(revenue), 2) AS total_revenue, COUNT(*) AS order_count FROM tko27_filipe_catalog.sales_demo.orders GROUP BY category ORDER BY total_revenue DESC"
+    },
+    {
+      "name": "revenue_by_region",
+      "displayName": "Revenue by Region",
+      "query": "SELECT region, ROUND(SUM(revenue), 2) AS total_revenue, COUNT(*) AS order_count FROM tko27_filipe_catalog.sales_demo.orders GROUP BY region ORDER BY total_revenue DESC"
+    },
+    {
+      "name": "monthly_trend",
+      "displayName": "Monthly Revenue Trend",
+      "query": "SELECT DATE_TRUNC('month', order_date) AS month, ROUND(SUM(revenue), 2) AS total_revenue, COUNT(*) AS order_count FROM tko27_filipe_catalog.sales_demo.orders WHERE status = 'Completed' GROUP BY DATE_TRUNC('month', order_date) ORDER BY month"
+    },
+    {
+      "name": "order_status_summary",
+      "displayName": "Order Status Summary",
+      "query": "SELECT status, COUNT(*) AS order_count, ROUND(SUM(revenue), 2) AS total_revenue FROM tko27_filipe_catalog.sales_demo.orders GROUP BY status ORDER BY order_count DESC"
+    },
+    {
+      "name": "kpi_totals",
+      "displayName": "KPI Totals",
+      "query": "SELECT COUNT(*) AS total_orders, ROUND(SUM(revenue), 2) AS total_revenue, ROUND(AVG(revenue), 2) AS avg_order_value, SUM(quantity) AS total_units FROM tko27_filipe_catalog.sales_demo.orders WHERE status = 'Completed'"
+    }
+  ],
+  "pages": [
+    {
+      "name": "sales_overview",
+      "displayName": "Sales Overview",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layout": [
+        {
+          "widget": {
+            "name": "total_revenue_counter",
+            "textboxSpec": null,
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_totals",
+                  "fields": [
+                    { "name": "total_revenue", "expression": "`total_revenue`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": { "fieldName": "total_revenue", "displayName": "Total Revenue" }
+              }
+            }
+          },
+          "position": { "x": 0, "y": 0, "width": 2, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "total_orders_counter",
+            "textboxSpec": null,
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_totals",
+                  "fields": [
+                    { "name": "total_orders", "expression": "`total_orders`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": { "fieldName": "total_orders", "displayName": "Total Orders" }
+              }
+            }
+          },
+          "position": { "x": 2, "y": 0, "width": 2, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "avg_order_value_counter",
+            "textboxSpec": null,
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpi_totals",
+                  "fields": [
+                    { "name": "avg_order_value", "expression": "`avg_order_value`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": { "fieldName": "avg_order_value", "displayName": "Avg Order Value" }
+              }
+            }
+          },
+          "position": { "x": 4, "y": 0, "width": 2, "height": 2 }
+        },
+        {
+          "widget": {
+            "name": "revenue_by_category_bar",
+            "textboxSpec": null,
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "revenue_by_category",
+                  "fields": [
+                    { "name": "category", "expression": "`category`" },
+                    { "name": "total_revenue", "expression": "`total_revenue`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": { "fieldName": "category", "scale": { "type": "categorical" }, "displayName": "Category" },
+                "y": { "fieldName": "total_revenue", "scale": { "type": "quantitative" }, "displayName": "Total Revenue" }
+              }
+            }
+          },
+          "position": { "x": 0, "y": 2, "width": 3, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "revenue_by_region_pie",
+            "textboxSpec": null,
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "revenue_by_region",
+                  "fields": [
+                    { "name": "region", "expression": "`region`" },
+                    { "name": "total_revenue", "expression": "`total_revenue`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": { "fieldName": "total_revenue", "displayName": "Revenue" },
+                "color": { "fieldName": "region", "scale": { "type": "categorical" }, "displayName": "Region" }
+              }
+            }
+          },
+          "position": { "x": 3, "y": 2, "width": 3, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "monthly_trend_line",
+            "textboxSpec": null,
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "monthly_trend",
+                  "fields": [
+                    { "name": "month", "expression": "`month`" },
+                    { "name": "total_revenue", "expression": "`total_revenue`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": { "fieldName": "month", "scale": { "type": "temporal" }, "displayName": "Month" },
+                "y": { "fieldName": "total_revenue", "scale": { "type": "quantitative" }, "displayName": "Revenue" }
+              }
+            }
+          },
+          "position": { "x": 0, "y": 6, "width": 6, "height": 4 }
+        },
+        {
+          "widget": {
+            "name": "order_status_table",
+            "textboxSpec": null,
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "order_status_summary",
+                  "fields": [
+                    { "name": "status", "expression": "`status`" },
+                    { "name": "order_count", "expression": "`order_count`" },
+                    { "name": "total_revenue", "expression": "`total_revenue`" }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  { "fieldName": "status", "displayName": "Status" },
+                  { "fieldName": "order_count", "displayName": "Orders" },
+                  { "fieldName": "total_revenue", "displayName": "Revenue" }
+                ]
+              }
+            }
+          },
+          "position": { "x": 0, "y": 10, "width": 6, "height": 3 }
+        }
+      ]
+    }
+  ]
+}

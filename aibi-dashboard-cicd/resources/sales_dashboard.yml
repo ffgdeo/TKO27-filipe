@@ -1,0 +1,9 @@
+resources:
+  dashboards:
+    sales_dashboard:
+      display_name: "[${bundle.target}] Sales Performance Dashboard"
+      file_path: ../src/dashboards/sales_dashboard.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      permissions:
+        - level: CAN_RUN
+          group_name: "users"

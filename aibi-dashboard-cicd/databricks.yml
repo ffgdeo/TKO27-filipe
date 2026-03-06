@@ -1,0 +1,31 @@
+bundle:
+  name: aibi-dashboard-cicd
+
+variables:
+  catalog:
+    default: "tko27_filipe_catalog"
+  schema:
+    default: "sales_demo"
+  warehouse_id:
+    default: "dbf1adf9dcd038cd"
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    default: true
+    mode: development
+    workspace:
+      profile: tko27-filipe
+    variables:
+      catalog: "tko27_filipe_catalog"
+      schema: "sales_demo"
+
+  prod:
+    mode: production
+    workspace:
+      profile: tko27-filipe
+    variables:
+      catalog: "tko27_filipe_catalog"
+      schema: "sales_demo"
